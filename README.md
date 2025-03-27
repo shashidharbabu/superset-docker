@@ -4,7 +4,7 @@ This repository contains the code for a full data pipeline project that demonstr
 
 1. **ETL Process:** Import two tables (`user_session_channel` and `session_timestamp`) from Snowflake into Airflow (using the `raw_data` schema).
 2. **ELT Process:** Create an Airflow DAG to join these tables into a new table called `session_summary` (under the `analytics` schema) with an extra condition to remove duplicate records.
-3. **BI Visualization:** Set up a BI tool (Preset, Docker Superset, or Tableau) to connect to Snowflake, import the `session_summary` table, and create a WAU (Weekly Active User) chart with the metric field renamed to "WAU".
+3. **BI Visualization:** Set up a Superset to connect to Snowflake, import the `session_summary` table, and create a WAU (Weekly Active User) chart with the metric field renamed to "WAU".
 
 ## Repository Structure
 
