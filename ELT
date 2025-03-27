@@ -1,0 +1,92 @@
+from airflow import DAG
+from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
+from airflow.utils.dates import days_ago
+from datetime import timedelta
+
+# Default arguments for DAG
+default_args = {
+    'owner': 'shashi',
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5)
+}
+
+# SQL Commands
+create_user_session_channel = """
+CREATE TABLE IF NOT EXISTS dev.raw_data.user_session_channel (
+    userId int not NULL,
+    sessionId varchar(32) primary key,
+    channel varchar(32) default 'direct'
+);
+"""
+
+create_session_timestamp = """
+CREATE TABLE IF NOT EXISTS dev.raw_data.session_timestamp (
+    sessionId varchar(32) primary key,
+    ts timestamp
+);
+"""
+
+create_s3_stage = """
+CREATE OR REPLACE STAGE dev.raw_data.blob_stage
+url = 's3://s3-geospatial/readonly/'
+file_format = (type = csv, skip_header = 1, field_optionally_enclosed_by = '"');
+"""
+
+copy_user_session_channel = """
+COPY INTO dev.raw_data.user_session_channel
+FROM @dev.raw_data.blob_stage/user_session_channel.csv;
+"""
+
+copy_session_timestamp = """
+COPY INTO dev.raw_data.session_timestamp
+FROM @dev.raw_data.blob_stage/session_timestamp.csv;
+"""
+
+# Define the DAG
+with DAG(
+    'elt_process_to_snowflake',
+    default_args=default_args,
+    description='ELT pipeline for loading data from S3 to Snowflake tables',
+    schedule_interval=timedelta(days=1),
+    start_date=days_ago(1),
+    catchup=False,
+) as dag:
+
+    # Create user_session_channel table
+    create_user_session_channel_task = SnowflakeOperator(
+        task_id='create_user_session_channel',
+        sql=create_user_session_channel,
+        snowflake_conn_id='snowflake_conn'
+    )
+
+    # Create session_timestamp table
+    create_session_timestamp_task = SnowflakeOperator(
+        task_id='create_session_timestamp',
+        sql=create_session_timestamp,
+        snowflake_conn_id='snowflake_conn'
+    )
+
+    # Create S3 stage
+    create_s3_stage_task = SnowflakeOperator(
+        task_id='create_s3_stage',
+        sql=create_s3_stage,
+        snowflake_conn_id='snowflake_conn'
+    )
+
+    # Copy data into user_session_channel table
+    copy_user_session_channel_task = SnowflakeOperator(
+        task_id='copy_user_session_channel',
+        sql=copy_user_session_channel,
+        snowflake_conn_id='snowflake_conn'
+    )
+
+    # Copy data into session_timestamp table
+    copy_session_timestamp_task = SnowflakeOperator(
+        task_id='copy_session_timestamp',
+        sql=copy_session_timestamp,
+        snowflake_conn_id='snowflake_conn'
+    )
+
+    # Task dependencies
+    [create_user_session_channel_task, create_session_timestamp_task] >> create_s3_stage_task
+    create_s3_stage_task >> [copy_user_session_channel_task, copy_session_timestamp_task]
