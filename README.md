@@ -10,8 +10,8 @@ This repository contains the code for a full data pipeline project that demonstr
 
 ```
 ├── dags
-│   ├── etl_import_dag.py      # DAG for importing data from Snowflake
-│   └── elt_join_dag.py        # DAG for creating the session_summary table
+│   ├── etl.py      # DAG for importing data from Snowflake
+│   └── elt.py        # DAG for creating the session_summary table
 ├── README.md                  # This file
 ```
 
